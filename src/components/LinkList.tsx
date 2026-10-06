@@ -18,7 +18,16 @@ export default function LinkList({ links }: LinkListProps) {
     fetch("/api/clicks")
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error("요청 실패"))))
       .then((data: { counts?: Record<string, number> }) => {
-        if (active && data.counts) setCounts(data.counts);
+        const serverCounts = data.counts;
+        if (!active || !serverCounts) return;
+        // 조회 응답보다 먼저 일어난 클릭(낙관적 증가분)이 덮어써지지 않도록 합산한다.
+        setCounts((prev) => {
+          const merged = { ...serverCounts };
+          for (const [id, n] of Object.entries(prev)) {
+            merged[id] = (serverCounts[id] ?? 0) + n;
+          }
+          return merged;
+        });
       })
       .catch(() => {
         // 조회 실패 시 0회 유지
